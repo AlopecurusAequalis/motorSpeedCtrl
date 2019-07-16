@@ -40,7 +40,10 @@ void loop(){
     integratedError = 30000*integratedError/abs(integratedError);
   }
   integratedError = integratedError + error*0.5;
-  float input = error*pGain + iGain*integratedError;
+  int input = error*pGain + iGain*integratedError;
+  if (abs(input) > 255){
+    input = (int) input*input/abs(input);
+  }
   analogWrite(3, input);
   int lcd_key;
   if (1){
