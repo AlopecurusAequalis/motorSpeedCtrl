@@ -1,9 +1,18 @@
+// LCD関連は見たらわかると思うし，
+// "Arduino LCD Shield" でググると情報がきっと出てくるはず．
+// 見てもわかりにくい"read_LCD_buttons"のみここでは紹介．
+// 使ったLCD Shieldにはボタンが複数ついていて，
+// 複数のボタンがまとめて同一のanalogReadにつながっている．
+// (RESETは除く．)
+// 各ボタンは異なる分圧抵抗が接続されているので，
+// 押したボタンによってanalogReadの値が異なる．
 #include <LiquidCrystal.h>
 
 LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
 
 float pGain = 0.6;
 float iGain = 0;
+// 偏差の積分
 float integratedError = 0;
 
 void setup(){
@@ -12,13 +21,15 @@ void setup(){
   lcd.print("Check disp");
   Serial.begin(9600);
 }
+
+// 冒頭で紹介したread_LCD_buttons
+// わからなかったらググれ．
 #define btnRIGHT  0   // RIGHT ボタン
 #define btnUP     1   // UP ボタン
 #define btnDOWN   2   // DOWN ボタン
 #define btnLEFT   3   // LEFT ボタン
 #define btnSELECT 4   // SELECT ボタン
 #define btnNONE   5   // 該当なし
-
 int read_LCD_buttons(){
   int adc_key_in = analogRead(0);            // キー入力アナログ値の取得
   if (adc_key_in > 1000) return btnNONE; // 入力値の範囲をチェック
@@ -35,14 +46,16 @@ void loop(){
   int reference = 300;
   int nowOut = analogRead(1);
   int error = reference - nowOut;
-  // anti wind-up
-  if (abs(integratedError) > 30000){
-    integratedError = 30000*integratedError/abs(integratedError);
+  // anti-windup
+  if (abs(integratedError) > 1000){
+    integratedError = 1000*integratedError/abs(integratedError);
   }
   integratedError = integratedError + error*0.5;
-  int input = error*pGain + iGain*integratedError;
+  int input = error*pGain;
+  input +=iGain*integratedError;
   if (abs(input) > 255){
-    input = (int) input*input/abs(input);
+    int sign = input/abs(input);
+    input = 255*sign;
   }
   analogWrite(3, input);
   int lcd_key;
@@ -55,7 +68,7 @@ void loop(){
     }else if (lcd_key == btnLEFT){
       iGain = 0;
     }else if (lcd_key == btnRIGHT){
-      iGain = 0.1;
+      iGain = 0.5;
       integratedError = 0;
     }
 
